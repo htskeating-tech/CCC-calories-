@@ -1,10 +1,3 @@
-Got it — you want the calorie counter to also handle drinks measured in millilitres (ml), not just grams. That means the logic should work like this:
-- If you enter kcal per 100ml and a drink volume (ml) → it calculates from that.
-- If you enter kcal per 100ml but no volume → it assumes 100ml.
-- If you enter kcal per bottle/can (per packet) → it uses that directly.
-- If you enter both → per packet takes priority.
-Here’s the full updated code (single‑file, ready to use on your phone) with support for grams (g) and millilitres (ml):
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,7 +14,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
     .card h2 { margin-top:0; }
     .field { margin-bottom:12px; }
     .label { display:block; margin-bottom:6px; color:#a9b3c1; font-size:.9rem; }
-    input { width:100%; padding:10px; border-radius:8px; border:1px solid #34406b; background:#10142a; color:#e8ecf1; }
+    input, select { width:100%; padding:10px; border-radius:8px; border:1px solid #34406b; background:#10142a; color:#e8ecf1; }
     button { background:#243059; color:#e8ecf1; border:1px solid #34406b; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; margin-top:6px; }
     button.primary { background:#234e31; border-color:#2c6b44; }
     .list { display:flex; flex-direction:column; gap:10px; }
@@ -36,7 +29,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
 <body>
   <header>
     <h1>Calorie Counter (Food & Drinks)</h1>
-    <p>Enter kcal per 100g/ml or per packet/bottle. If no weight/volume, defaults to 100g/100ml.</p>
+    <p>Enter kcal per 100g/ml or per packet/bottle. If no amount entered, defaults to 100g/100ml.</p>
   </header>
 
   <div class="container">
@@ -47,8 +40,14 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
         <input id="itemName" type="text" placeholder="e.g., Cola 330ml" />
       </div>
       <div class="field">
-        <label class="label">Weight (g) or Volume (ml)</label>
-        <input id="amount" type="number" min="0" placeholder="e.g., 150 for food, 330 for drink" />
+        <label class="label">Amount</label>
+        <div style="display:flex; gap:6px;">
+          <input id="amount" type="number" min="0" placeholder="e.g., 150 or 330" style="flex:2;" />
+          <select id="unit" style="flex:1;">
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+          </select>
+        </div>
       </div>
       <div class="field">
         <label class="label">Calories per 100g/ml (kcal)</label>
@@ -68,6 +67,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
       <div class="list" id="logList"></div>
       <div class="total" id="totalKcal">0 kcal</div>
       <button id="btnExport">Export CSV</button>
+      <button id="btnImport">Import CSV</button>
     </section>
   </div>
 
@@ -75,6 +75,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
     const el = {
       itemName: document.getElementById("itemName"),
       amount: document.getElementById("amount"),
+      unit: document.getElementById("unit"),
       kcalPer100: document.getElementById("kcalPer100"),
       kcalPerPacket: document.getElementById("kcalPerPacket"),
       btnCalc: document.getElementById("btnCalc"),
@@ -82,7 +83,8 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
       calcResult: document.getElementById("calcResult"),
       logList: document.getElementById("logList"),
       totalKcal: document.getElementById("totalKcal"),
-      btnExport: document.getElementById("btnExport")
+      btnExport: document.getElementById("btnExport"),
+      btnImport: document.getElementById("btnImport")
     };
 
     let items = [];
@@ -91,6 +93,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
       const per100 = parseFloat(el.kcalPer100.value);
       const packet = parseFloat(el.kcalPerPacket.value);
       const amount = parseFloat(el.amount.value);
+      const unit = el.unit.value;
 
       let total = NaN;
       let mode = "";
@@ -100,10 +103,10 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
         total = packet;
       } else if (!isNaN(per100)) {
         if (!isNaN(amount) && amount > 0) {
-          mode = `per 100 × ${amount}`;
+          mode = `per 100${unit} × ${amount}${unit}`;
           total = per100 * (amount / 100);
         } else {
-          mode = "per 100 (default)";
+          mode = `per 100${unit} (default)`;
           total = per100;
         }
       }
@@ -126,6 +129,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
       const item = {
         name: el.itemName.value || "Item",
         amount: el.amount.value || "",
+        unit: el.unit.value,
         per100: el.kcalPer100.value || "",
         perPack: el.kcalPerPacket.value || "",
         totalKcal: total
@@ -142,7 +146,7 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
         total += i.totalKcal;
         const div = document.createElement("div");
         div.className = "item";
-        div.innerHTML = `<div>${i.name}</div><div class="kcal">${i.totalKcal} kcal</div>`;
+        div.innerHTML = `<div>${i.name} (${i.amount}${i.unit || ""})</div><div class="kcal">${i.totalKcal} kcal</div>`;
         el.logList.appendChild(div);
       });
       el.totalKcal.textContent = `${total} kcal`;
@@ -156,28 +160,23 @@ Here’s the full updated code (single‑file, ready to use on your phone) with 
       el.calcResult.textContent = "";
     }
 
+    // Export CSV with mobile fallback
     el.btnExport.addEventListener("click", () => {
-      const rows = [["Item","Amount (g/ml)","kcal/100","kcal/packet","Total kcal"]];
-      items.forEach(i => rows.push([i.name, i.amount, i.per100, i.perPack, i.totalKcal]));
+      const rows = [["Item","Amount","Unit","kcal/100","kcal/packet","Total kcal"]];
+      items.forEach(i => rows.push([i.name, i.amount, i.unit, i.per100, i.perPack, i.totalKcal]));
       const csv = rows.map(r => r.join(",")).join("\n");
-      const blob = new Blob([csv], { type:"text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "calorie-log.csv";
-      a.click();
-      URL.revokeObjectURL(url);
+      try {
+        const blob = new Blob([csv], { type:"text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "calorie-log.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        const win = window.open();
+        win.document.write("<pre>" + csv + "</pre>");
+      }
     });
-  </script>
-</body>
-</html>
 
-
-
-✅ What’s new
-- Unified “Amount” field → enter either grams (food) or millilitres (drinks).
-- Calories per 100g/ml → works for both solids and liquids.
-- Calories per packet/bottle → overrides if provided.
-- Default assumption → if no amount entered, assumes 100g/100ml.
-
-Would you like me to also add a unit selector (g vs ml) next to the amount field, so the log clearly shows whether it was food weight or drink volume?
+    // Import CSV
