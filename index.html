@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Weekly Calorie Counter</title>
+  <title>Calorie Counter (Food & Drinks)</title>
   <style>
     body { font-family: Arial, sans-serif; background:#0f1220; color:#e8ecf1; margin:0; }
     header { padding:20px; text-align:center; background:#131735; }
@@ -28,8 +28,8 @@
 </head>
 <body>
   <header>
-    <h1>Weekly Calorie Counter</h1>
-    <p>Logs are grouped by day. Export gives you a weekly CSV with totals.</p>
+    <h1>Calorie Counter (Food & Drinks)</h1>
+    <p>Enter kcal per 100g/ml or per packet/bottle. If no amount entered, defaults to 100g/100ml.</p>
   </header>
 
   <div class="container">
@@ -50,135 +50,3 @@
         </div>
       </div>
       <div class="field">
-        <label class="label">Calories per 100g/ml (kcal)</label>
-        <input id="kcalPer100" type="number" min="0" />
-      </div>
-      <div class="field">
-        <label class="label">Calories per packet/bottle (kcal)</label>
-        <input id="kcalPerPacket" type="number" min="0" />
-      </div>
-      <button id="btnCalc">Calculate</button>
-      <p id="calcResult" class="hint"></p>
-      <button id="btnAdd" class="primary">Add to log</button>
-    </section>
-
-    <section class="card">
-      <h2>Today’s Log</h2>
-      <div class="list" id="logList"></div>
-      <div class="total" id="totalKcal">0 kcal</div>
-      <button id="btnExport">Export Weekly CSV</button>
-    </section>
-  </div>
-
-  <script>
-    const el = {
-      itemName: document.getElementById("itemName"),
-      amount: document.getElementById("amount"),
-      unit: document.getElementById("unit"),
-      kcalPer100: document.getElementById("kcalPer100"),
-      kcalPerPacket: document.getElementById("kcalPerPacket"),
-      btnCalc: document.getElementById("btnCalc"),
-      btnAdd: document.getElementById("btnAdd"),
-      calcResult: document.getElementById("calcResult"),
-      logList: document.getElementById("logList"),
-      totalKcal: document.getElementById("totalKcal"),
-      btnExport: document.getElementById("btnExport")
-    };
-
-    // Store items grouped by date
-    let logs = {};
-
-    function todayKey() {
-      const d = new Date();
-      return d.toISOString().split("T")[0]; // YYYY-MM-DD
-    }
-
-    function calculateCalories() {
-      const per100 = parseFloat(el.kcalPer100.value);
-      const packet = parseFloat(el.kcalPerPacket.value);
-      const amount = parseFloat(el.amount.value);
-      const unit = el.unit.value;
-
-      let total = NaN;
-      let mode = "";
-
-      if (!isNaN(packet)) {
-        mode = "per packet/bottle";
-        total = packet;
-      } else if (!isNaN(per100)) {
-        if (!isNaN(amount) && amount > 0) {
-          mode = `per 100${unit} × ${amount}${unit}`;
-          total = per100 * (amount / 100);
-        } else {
-          mode = `per 100${unit} (default)`;
-          total = per100;
-        }
-      }
-
-      if (isNaN(total)) {
-        el.calcResult.innerHTML = '<span class="error">Enter per packet OR per 100g/ml.</span>';
-        return null;
-      }
-
-      el.calcResult.innerHTML = `<span class="success">Calculated (${mode}): ${Math.round(total)} kcal</span>`;
-      return Math.round(total);
-    }
-
-    el.btnCalc.addEventListener("click", calculateCalories);
-
-    el.btnAdd.addEventListener("click", () => {
-      const total = calculateCalories();
-      if (total === null) return;
-
-      const entry = {
-        name: el.itemName.value || "Item",
-        amount: el.amount.value || "",
-        unit: el.unit.value,
-        per100: el.kcalPer100.value || "",
-        perPack: el.kcalPerPacket.value || "",
-        totalKcal: total
-      };
-
-      const key = todayKey();
-      if (!logs[key]) logs[key] = [];
-      logs[key].push(entry);
-
-      render();
-      clearForm();
-    });
-
-    function render() {
-      const key = todayKey();
-      const items = logs[key] || [];
-      el.logList.innerHTML = "";
-      let total = 0;
-      items.forEach((i) => {
-        total += i.totalKcal;
-        const div = document.createElement("div");
-        div.className = "item";
-        div.innerHTML = `<div>${i.name} (${i.amount}${i.unit || ""})</div><div class="kcal">${i.totalKcal} kcal</div>`;
-        el.logList.appendChild(div);
-      });
-      el.totalKcal.textContent = `${total} kcal`;
-    }
-
-    function clearForm() {
-      el.itemName.value = "";
-      el.amount.value = "";
-      el.kcalPer100.value = "";
-      el.kcalPerPacket.value = "";
-      el.calcResult.textContent = "";
-    }
-
-    // Export weekly CSV
-    el.btnExport.addEventListener("click", () => {
-      const rows = [["Date","Total kcal"]];
-      let weeklyTotal = 0;
-
-      Object.keys(logs).sort().forEach(date => {
-        const dayTotal = logs[date].reduce((sum, i) => sum + i.totalKcal, 0);
-        weeklyTotal += dayTotal;
-        rows.push([date, dayTotal]);
-      });
-
-      rows.push(["Weekly Total", weeklyTotal
