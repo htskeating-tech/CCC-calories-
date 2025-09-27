@@ -1,0 +1,183 @@
+Got it — you want the calorie counter to also handle drinks measured in millilitres (ml), not just grams. That means the logic should work like this:
+- If you enter kcal per 100ml and a drink volume (ml) → it calculates from that.
+- If you enter kcal per 100ml but no volume → it assumes 100ml.
+- If you enter kcal per bottle/can (per packet) → it uses that directly.
+- If you enter both → per packet takes priority.
+Here’s the full updated code (single‑file, ready to use on your phone) with support for grams (g) and millilitres (ml):
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calorie Counter (Food & Drinks)</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#0f1220; color:#e8ecf1; margin:0; }
+    header { padding:20px; text-align:center; background:#131735; }
+    h1 { margin:0; }
+    .container { max-width:900px; margin:20px auto; padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:800px){ .container{ grid-template-columns:1fr; } }
+    .card { background:#1a1f33; border:1px solid #2a3252; border-radius:10px; padding:16px; }
+    .card h2 { margin-top:0; }
+    .field { margin-bottom:12px; }
+    .label { display:block; margin-bottom:6px; color:#a9b3c1; font-size:.9rem; }
+    input { width:100%; padding:10px; border-radius:8px; border:1px solid #34406b; background:#10142a; color:#e8ecf1; }
+    button { background:#243059; color:#e8ecf1; border:1px solid #34406b; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; margin-top:6px; }
+    button.primary { background:#234e31; border-color:#2c6b44; }
+    .list { display:flex; flex-direction:column; gap:10px; }
+    .item { display:flex; justify-content:space-between; background:#141a2e; border:1px solid #2a3252; border-radius:8px; padding:10px; }
+    .kcal { font-weight:700; color:#6ccf84; }
+    .total { font-size:1.2rem; font-weight:700; color:#6ccf84; margin-top:10px; }
+    .hint { font-size:.85rem; color:#a9b3c1; margin-top:4px; }
+    .success { color:#6ccf84; }
+    .error { color:#ff5f70; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Calorie Counter (Food & Drinks)</h1>
+    <p>Enter kcal per 100g/ml or per packet/bottle. If no weight/volume, defaults to 100g/100ml.</p>
+  </header>
+
+  <div class="container">
+    <section class="card">
+      <h2>Add Item</h2>
+      <div class="field">
+        <label class="label">Item name</label>
+        <input id="itemName" type="text" placeholder="e.g., Cola 330ml" />
+      </div>
+      <div class="field">
+        <label class="label">Weight (g) or Volume (ml)</label>
+        <input id="amount" type="number" min="0" placeholder="e.g., 150 for food, 330 for drink" />
+      </div>
+      <div class="field">
+        <label class="label">Calories per 100g/ml (kcal)</label>
+        <input id="kcalPer100" type="number" min="0" />
+      </div>
+      <div class="field">
+        <label class="label">Calories per packet/bottle (kcal)</label>
+        <input id="kcalPerPacket" type="number" min="0" />
+      </div>
+      <button id="btnCalc">Calculate</button>
+      <p id="calcResult" class="hint"></p>
+      <button id="btnAdd" class="primary">Add to log</button>
+    </section>
+
+    <section class="card">
+      <h2>Day Log</h2>
+      <div class="list" id="logList"></div>
+      <div class="total" id="totalKcal">0 kcal</div>
+      <button id="btnExport">Export CSV</button>
+    </section>
+  </div>
+
+  <script>
+    const el = {
+      itemName: document.getElementById("itemName"),
+      amount: document.getElementById("amount"),
+      kcalPer100: document.getElementById("kcalPer100"),
+      kcalPerPacket: document.getElementById("kcalPerPacket"),
+      btnCalc: document.getElementById("btnCalc"),
+      btnAdd: document.getElementById("btnAdd"),
+      calcResult: document.getElementById("calcResult"),
+      logList: document.getElementById("logList"),
+      totalKcal: document.getElementById("totalKcal"),
+      btnExport: document.getElementById("btnExport")
+    };
+
+    let items = [];
+
+    function calculateCalories() {
+      const per100 = parseFloat(el.kcalPer100.value);
+      const packet = parseFloat(el.kcalPerPacket.value);
+      const amount = parseFloat(el.amount.value);
+
+      let total = NaN;
+      let mode = "";
+
+      if (!isNaN(packet)) {
+        mode = "per packet/bottle";
+        total = packet;
+      } else if (!isNaN(per100)) {
+        if (!isNaN(amount) && amount > 0) {
+          mode = `per 100 × ${amount}`;
+          total = per100 * (amount / 100);
+        } else {
+          mode = "per 100 (default)";
+          total = per100;
+        }
+      }
+
+      if (isNaN(total)) {
+        el.calcResult.innerHTML = '<span class="error">Enter per packet OR per 100g/ml.</span>';
+        return null;
+      }
+
+      el.calcResult.innerHTML = `<span class="success">Calculated (${mode}): ${Math.round(total)} kcal</span>`;
+      return Math.round(total);
+    }
+
+    el.btnCalc.addEventListener("click", calculateCalories);
+
+    el.btnAdd.addEventListener("click", () => {
+      const total = calculateCalories();
+      if (total === null) return;
+
+      const item = {
+        name: el.itemName.value || "Item",
+        amount: el.amount.value || "",
+        per100: el.kcalPer100.value || "",
+        perPack: el.kcalPerPacket.value || "",
+        totalKcal: total
+      };
+      items.push(item);
+      render();
+      clearForm();
+    });
+
+    function render() {
+      el.logList.innerHTML = "";
+      let total = 0;
+      items.forEach((i) => {
+        total += i.totalKcal;
+        const div = document.createElement("div");
+        div.className = "item";
+        div.innerHTML = `<div>${i.name}</div><div class="kcal">${i.totalKcal} kcal</div>`;
+        el.logList.appendChild(div);
+      });
+      el.totalKcal.textContent = `${total} kcal`;
+    }
+
+    function clearForm() {
+      el.itemName.value = "";
+      el.amount.value = "";
+      el.kcalPer100.value = "";
+      el.kcalPerPacket.value = "";
+      el.calcResult.textContent = "";
+    }
+
+    el.btnExport.addEventListener("click", () => {
+      const rows = [["Item","Amount (g/ml)","kcal/100","kcal/packet","Total kcal"]];
+      items.forEach(i => rows.push([i.name, i.amount, i.per100, i.perPack, i.totalKcal]));
+      const csv = rows.map(r => r.join(",")).join("\n");
+      const blob = new Blob([csv], { type:"text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "calorie-log.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
+
+
+
+✅ What’s new
+- Unified “Amount” field → enter either grams (food) or millilitres (drinks).
+- Calories per 100g/ml → works for both solids and liquids.
+- Calories per packet/bottle → overrides if provided.
+- Default assumption → if no amount entered, assumes 100g/100ml.
+
+Would you like me to also add a unit selector (g vs ml) next to the amount field, so the log clearly shows whether it was food weight or drink volume?
