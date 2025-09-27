@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Calorie Counter (Food & Drinks)</title>
+  <title>Weekly Calorie Counter</title>
   <style>
     body { font-family: Arial, sans-serif; background:#0f1220; color:#e8ecf1; margin:0; }
     header { padding:20px; text-align:center; background:#131735; }
@@ -28,8 +28,8 @@
 </head>
 <body>
   <header>
-    <h1>Calorie Counter (Food & Drinks)</h1>
-    <p>Enter kcal per 100g/ml or per packet/bottle. If no amount entered, defaults to 100g/100ml.</p>
+    <h1>Weekly Calorie Counter</h1>
+    <p>Logs are grouped by day. Export gives you a weekly CSV with totals.</p>
   </header>
 
   <div class="container">
@@ -63,11 +63,10 @@
     </section>
 
     <section class="card">
-      <h2>Day Log</h2>
+      <h2>Today’s Log</h2>
       <div class="list" id="logList"></div>
       <div class="total" id="totalKcal">0 kcal</div>
-      <button id="btnExport">Export CSV</button>
-      <button id="btnImport">Import CSV</button>
+      <button id="btnExport">Export Weekly CSV</button>
     </section>
   </div>
 
@@ -83,11 +82,16 @@
       calcResult: document.getElementById("calcResult"),
       logList: document.getElementById("logList"),
       totalKcal: document.getElementById("totalKcal"),
-      btnExport: document.getElementById("btnExport"),
-      btnImport: document.getElementById("btnImport")
+      btnExport: document.getElementById("btnExport")
     };
 
-    let items = [];
+    // Store items grouped by date
+    let logs = {};
+
+    function todayKey() {
+      const d = new Date();
+      return d.toISOString().split("T")[0]; // YYYY-MM-DD
+    }
 
     function calculateCalories() {
       const per100 = parseFloat(el.kcalPer100.value);
@@ -126,7 +130,7 @@
       const total = calculateCalories();
       if (total === null) return;
 
-      const item = {
+      const entry = {
         name: el.itemName.value || "Item",
         amount: el.amount.value || "",
         unit: el.unit.value,
@@ -134,12 +138,18 @@
         perPack: el.kcalPerPacket.value || "",
         totalKcal: total
       };
-      items.push(item);
+
+      const key = todayKey();
+      if (!logs[key]) logs[key] = [];
+      logs[key].push(entry);
+
       render();
       clearForm();
     });
 
     function render() {
+      const key = todayKey();
+      const items = logs[key] || [];
       el.logList.innerHTML = "";
       let total = 0;
       items.forEach((i) => {
@@ -160,23 +170,15 @@
       el.calcResult.textContent = "";
     }
 
-    // Export CSV with mobile fallback
+    // Export weekly CSV
     el.btnExport.addEventListener("click", () => {
-      const rows = [["Item","Amount","Unit","kcal/100","kcal/packet","Total kcal"]];
-      items.forEach(i => rows.push([i.name, i.amount, i.unit, i.per100, i.perPack, i.totalKcal]));
-      const csv = rows.map(r => r.join(",")).join("\n");
-      try {
-        const blob = new Blob([csv], { type:"text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "calorie-log.csv";
-        a.click();
-        URL.revokeObjectURL(url);
-      } catch (e) {
-        const win = window.open();
-        win.document.write("<pre>" + csv + "</pre>");
-      }
-    });
+      const rows = [["Date","Total kcal"]];
+      let weeklyTotal = 0;
 
-    // Import CSV
+      Object.keys(logs).sort().forEach(date => {
+        const dayTotal = logs[date].reduce((sum, i) => sum + i.totalKcal, 0);
+        weeklyTotal += dayTotal;
+        rows.push([date, dayTotal]);
+      });
+
+      rows.push(["Weekly Total", weeklyTotal
