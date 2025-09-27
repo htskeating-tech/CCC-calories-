@@ -1,74 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Weekly Calorie Counter</title>
+  <meta charset="UTF-8">
+  <title>Calorie Log</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#0f1220; color:#e8ecf1; margin:0; }
-    header { padding:20px; text-align:center; background:#131735; }
-    h1 { margin:0; }
-    .container { max-width:900px; margin:20px auto; padding:0 16px; display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    @media(max-width:800px){ .container{ grid-template-columns:1fr; } }
-    .card { background:#1a1f33; border:1px solid #2a3252; border-radius:10px; padding:16px; }
-    .card h2 { margin-top:0; }
-    .field { margin-bottom:12px; }
-    .label { display:block; margin-bottom:6px; color:#a9b3c1; font-size:.9rem; }
-    input, select { width:100%; padding:10px; border-radius:8px; border:1px solid #34406b; background:#10142a; color:#e8ecf1; }
-    button { background:#243059; color:#e8ecf1; border:1px solid #34406b; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; margin-top:6px; }
-    button.primary { background:#234e31; border-color:#2c6b44; }
-    .list { display:flex; flex-direction:column; gap:10px; }
-    .item { display:flex; justify-content:space-between; background:#141a2e; border:1px solid #2a3252; border-radius:8px; padding:10px; }
-    .kcal { font-weight:700; color:#6ccf84; }
-    .total { font-size:1.2rem; font-weight:700; color:#6ccf84; margin-top:10px; }
-    .hint { font-size:.85rem; color:#a9b3c1; margin-top:4px; }
-    .success { color:#6ccf84; }
-    .error { color:#ff5f70; }
+    body { font-family: sans-serif; margin: 2em; }
+    .item { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .kcal { font-weight: bold; }
+    .success { color: green; }
+    .error { color: red; }
+    label { display:block; margin-top: 8px; }
+    input, select { margin-bottom: 8px; }
+    #logList { margin-top: 1em; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Weekly Calorie Counter</h1>
-    <p>Logs are grouped by day. Export gives you a weekly CSV with totals.</p>
-  </header>
+  <h1>Calorie Log</h1>
+  <label>
+    Item name:
+    <input type="text" id="itemName">
+  </label>
+  <label>
+    Amount:
+    <input type="number" id="amount" min="0" step="any">
+    <select id="unit">
+      <option value="g">g</option>
+      <option value="ml">ml</option>
+      <option value="">(none)</option>
+    </select>
+  </label>
+  <label>
+    kcal per 100g/ml:
+    <input type="number" id="kcalPer100" min="0" step="any">
+  </label>
+  <label>
+    kcal per packet/bottle:
+    <input type="number" id="kcalPerPacket" min="0" step="any">
+  </label>
+  <br>
+  <button id="btnCalc">Calculate</button>
+  <button id="btnAdd">Add to Log</button>
+  <span id="calcResult"></span>
 
-  <div class="container">
-    <section class="card">
-      <h2>Add Item</h2>
-      <div class="field">
-        <label class="label">Item name</label>
-        <input id="itemName" type="text" placeholder="e.g., Cola 330ml" />
-      </div>
-      <div class="field">
-        <label class="label">Amount</label>
-        <div style="display:flex; gap:6px;">
-          <input id="amount" type="number" min="0" placeholder="e.g., 150 or 330" style="flex:2;" />
-          <select id="unit" style="flex:1;">
-            <option value="g">g</option>
-            <option value="ml">ml</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <label class="label">Calories per 100g/ml (kcal)</label>
-        <input id="kcalPer100" type="number" min="0" />
-      </div>
-      <div class="field">
-        <label class="label">Calories per packet/bottle (kcal)</label>
-        <input id="kcalPerPacket" type="number" min="0" />
-      </div>
-      <button id="btnCalc">Calculate</button>
-      <p id="calcResult" class="hint"></p>
-      <button id="btnAdd" class="primary">Add to log</button>
-    </section>
-
-    <section class="card">
-      <h2>Today’s Log</h2>
-      <div class="list" id="logList"></div>
-      <div class="total" id="totalKcal">0 kcal</div>
-      <button id="btnExport">Export Weekly CSV</button>
-    </section>
-  </div>
+  <h2>Today's Log (<span id="totalKcal">0</span>)</h2>
+  <div id="logList"></div>
+  <button id="btnExport">Export Weekly CSV</button>
 
   <script>
     const el = {
@@ -181,4 +157,26 @@
         rows.push([date, dayTotal]);
       });
 
-      rows.push(["Weekly Total", weeklyTotal
+      rows.push(["Weekly Total", weeklyTotal]);
+
+      // Convert to CSV string (properly quoting fields)
+      const csvContent = rows.map(row =>
+        row.map(field =>
+          '"' + String(field).replace(/"/g, '""') + '"'
+        ).join(",")
+      ).join("\n");
+
+      // Trigger download
+      const blob = new Blob([csvContent], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "weekly-calorie-log.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
